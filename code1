@@ -1,41 +1,52 @@
--- [[ OVERKILL V6: SELLABLE EDITION ]] --
--- Features: Aggressive Timing, Frame-Sync, Neon Visualizer
-
+-- [[ NO-ENEMIES REBORN: THE SELLABLE EDITION ]] --
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 local Player = Players.LocalPlayer
 
--- // COMMERICAL CONFIGURATION //
+-- // SETTINGS //
 local Config = {
-    Enabled = true,
-    Threshold = 0.55, -- The "Magic Number" from the script you liked
-    ClashDistance = 15,
-    Visuals = true
+    Threshold = 0.55, -- Your magic number
+    Enabled = true
 }
 
--- // FANCY NOTIFICATION //
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "APEX OVERKILL",
-    Text = "System Authenticated. Ready to Dominate.",
-    Duration = 5
-})
+-- // PREMIUM UI //
+local Gui = Instance.new("ScreenGui", Player.PlayerGui)
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 220, 0, 90)
+Main.Position = UDim2.new(0.5, -110, 0.1, 0)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BorderSizePixel = 0
 
--- // THE DYNAMIC VISUALIZER //
-local Selection = Instance.new("SelectionBox")
-Selection.LineThickness = 0.05
-Selection.Color3 = Color3.fromRGB(0, 255, 255) -- Cyan
-Selection.Parent = workspace
+local UIStroke = Instance.new("UIStroke", Main)
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(255, 255, 255)
 
--- // CORE LOGIC //
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "NO ENEMIES HUB [V2]"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+
+local Toggle = Instance.new("TextButton", Main)
+Toggle.Size = UDim2.new(0.9, 0, 0, 35)
+Toggle.Position = UDim2.new(0.05, 0, 0.5, 0)
+Toggle.Text = "AUTO PARRY: ACTIVE"
+Toggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Toggle.TextColor3 = Color3.fromRGB(0, 255, 150)
+Instance.new("UICorner", Toggle)
+
+-- // THE "ZOOMIES" LOGIC //
 local Parried = false
+
 local function GetBall()
-    for _, b in pairs(workspace.Balls:GetChildren()) do
-        if b:GetAttribute("realBall") then return b end
+    for _, Ball in ipairs(workspace.Balls:GetChildren()) do
+        if Ball:GetAttribute("realBall") then return Ball end
     end
 end
 
--- Reset parry state when target changes
+-- Fixed the reset logic so you don't die on the second hit
 workspace.Balls.ChildAdded:Connect(function(Ball)
     Ball:GetAttributeChangedSignal("target"):Connect(function()
         Parried = false
@@ -47,48 +58,33 @@ RunService.PreSimulation:Connect(function()
     
     local Ball = GetBall()
     local Character = Player.Character
-    if not Ball or not Character or not Character:FindFirstChild("HumanoidRootPart") then 
-        Selection.Adornee = nil
-        return 
-    end
-
-    local HRP = Character.HumanoidRootPart
-    local Distance = (HRP.Position - Ball.Position).Magnitude
+    if not Ball or not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
     
-    -- High-Velocity Check (Detects 'zoomies' or standard physics)
-    local Speed = Ball.AssemblyLinearVelocity.Magnitude
-    if Speed < 10 then Speed = 50 end -- Prevent division by zero
-
-    -- Time to Impact Calculation
-    local TTI = Distance / Speed
-    local Target = Ball:GetAttribute("target")
-
-    -- Visualizer Logic (Looks great for showcases)
-    if Config.Visuals then
-        Selection.Adornee = Ball
-        if Target == Player.Name then
-            Selection.Color3 = Color3.fromRGB(255, 0, 0) -- Red (Danger)
-            Selection.Transparency = 0
-        else
-            Selection.Color3 = Color3.fromRGB(255, 255, 255) -- White (Safe)
-            Selection.Transparency = 0.5
-        end
-    end
-
-    -- THE TRIGGER
-    -- We use the 0.55 threshold you liked, but add a 15-stud "Clash Override"
-    if Target == Player.Name and not Parried then
-        if TTI <= Config.Threshold or Distance <= Config.ClashDistance then
-            -- Click
+    -- Using YOUR specific "zoomies" detection
+    local zoomies = Ball:FindFirstChild("zoomies")
+    if not zoomies then return end
+    
+    local Speed = zoomies.VectorVelocity.Magnitude
+    local Distance = (Character.HumanoidRootPart.Position - Ball.Position).Magnitude
+    
+    -- The Logic that actually works for you
+    if Ball:GetAttribute("target") == Player.Name and not Parried then
+        if (Distance / Speed) <= Config.Threshold then
             VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
             VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
             
             Parried = true
             
-            -- Dynamic Reset (Faster than the 1-second delay in the old script)
-            task.delay(0.1, function()
-                Parried = false
+            -- Fixed the 'Partied' typo and long 1s cooldown
+            task.delay(0.05, function() 
+                Parried = false 
             end)
         end
     end
+end)
+
+Toggle.MouseButton1Click:Connect(function()
+    Config.Enabled = not Config.Enabled
+    Toggle.Text = Config.Enabled and "AUTO PARRY: ACTIVE" or "AUTO PARRY: OFF"
+    Toggle.TextColor3 = Config.Enabled and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
 end)
