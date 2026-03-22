@@ -1,141 +1,89 @@
--- [[ APEX INFINITY v4.0: WORLD CLASS EDITION ]] --
--- Optimized for 300 FPS | Sub-Frame Prediction | Anti-Curve Logic
+-- [[ OVERLORD AUTO-PARRY: NO-FILTER EDITION ]] --
+-- Designed for 200 FPS | 40-60 Ping | Anti-Curve Raycasting
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local VIM = game:GetService("VirtualInputManager")
-local TweenService = game:GetService("TweenService")
 
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local HRP = Character:WaitForChild("HumanoidRootPart")
 
--- // ELITE CONFIGURATION //
-local Apex = {
+-- // THE "BEST" CONFIG //
+local Config = {
     Enabled = true,
-    StaticBuffer = 0.012,    -- Ultra-tight timing for high speed
-    ClashRange = 14,         -- Distance where math stops and spam starts
-    DetectionAngle = 0.15,   -- Dot Product sensitivity (ignores baits)
-    Visuals = true,
-    Theme = Color3.fromRGB(0, 255, 255) -- Electric Cyan
+    -- Timing: Lower = Closer to body, Higher = Further away
+    -- With 50 ping, 0.035 is usually the "God Spot"
+    TimingBuffer = 0.035, 
+    ClashDistance = 18, -- Buffed for fast spammers
 }
 
--- // UI OVERHAUL (Sleek & Professional) //
+-- // MINIMALIST PRO GUI //
 local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 260, 0, 120)
-Main.Position = UDim2.new(0.05, 0, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-Main.BorderSizePixel = 0
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 150, 0, 50)
+Frame.Position = UDim2.new(0.5, -75, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BackgroundTransparency = 0.5
 
-local UIStroke = Instance.new("UIStroke", Main)
-UIStroke.Thickness = 2
-UIStroke.Color = Apex.Theme
+local Toggle = Instance.new("TextButton", Frame)
+Toggle.Size = UDim2.new(1, 0, 1, 0)
+Toggle.Text = "OVERLORD: ACTIVE"
+Toggle.TextColor3 = Color3.fromRGB(0, 255, 100)
+Toggle.BackgroundTransparency = 1
+Toggle.Font = Enum.Font.Code
 
-local Glow = Instance.new("ImageLabel", Main)
-Glow.Size = UDim2.new(1.2, 0, 1.2, 0)
-Glow.Position = UDim2.new(-0.1, 0, -0.1, 0)
-Glow.BackgroundTransparency = 1
-Glow.Image = "rbxassetid://6015667341"
-Glow.ImageColor3 = Apex.Theme
-Glow.ZIndex = 0
-
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "APEX INFINITY"
-Title.Font = Enum.Font.Code
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 20
-Title.BackgroundTransparency = 1
-
-local Indicators = Instance.new("TextLabel", Main)
-Indicators.Size = UDim2.new(1, 0, 0, 20)
-Indicators.Position = UDim2.new(0, 0, 0.35, 0)
-Indicators.Text = "STABLE | 300 FPS"
-Indicators.TextColor3 = Color3.fromRGB(150, 150, 150)
-Indicators.Font = Enum.Font.Code
-Indicators.TextSize = 12
-Indicators.BackgroundTransparency = 1
-
-local ToggleBtn = Instance.new("TextButton", Main)
-ToggleBtn.Size = UDim2.new(0.9, 0, 0, 35)
-ToggleBtn.Position = UDim2.new(0.05, 0, 0.6, 0)
-ToggleBtn.Text = "SYSTEM ACTIVE"
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-ToggleBtn.TextColor3 = Apex.Theme
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.BorderSizePixel = 0
-Instance.new("UICorner", ToggleBtn)
-
--- Draggable Logic (Simple)
-local dragging, dragStart, startPos
-Main.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = i.Position; startPos = Main.Position end end)
-game:GetService("UserInputService").InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-    local d = i.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-end end)
-game:GetService("UserInputService").InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    Apex.Enabled = not Apex.Enabled
-    ToggleBtn.Text = Apex.Enabled and "SYSTEM ACTIVE" or "SYSTEM HALTED"
-    ToggleBtn.TextColor3 = Apex.Enabled and Apex.Theme or Color3.fromRGB(255, 50, 50)
+Toggle.MouseButton1Click:Connect(function()
+    Config.Enabled = not Config.Enabled
+    Toggle.Text = Config.Enabled and "OVERLORD: ACTIVE" or "OVERLORD: OFF"
+    Toggle.TextColor3 = Config.Enabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
 end)
 
--- // THE "GOD-MODE" LOGIC //
-local function GetActiveBall()
+-- // ELITE EXECUTION //
+local function GetBall()
     for _, b in pairs(workspace.Balls:GetChildren()) do
         if b:GetAttribute("realBall") then return b end
     end
 end
 
-local function ExecParry()
+-- Fast parry trigger
+local function Hit()
     VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
     VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 end
 
--- Hook into the physics step for zero-latency detection
-RunService.PostSimulation:Connect(function(dt)
-    if not Apex.Enabled then return end
+-- Using Heartbeat (Runs every physics frame)
+RunService.Heartbeat:Connect(function(dt)
+    if not Config.Enabled then return end
     
-    local ball = GetActiveBall()
-    if not ball or not Character:FindFirstChild("HumanoidRootPart") then return end
+    local Ball = GetBall()
+    if not Ball or not Character:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Real-time Physics Data
-    local ballVel = ball.AssemblyLinearVelocity
-    local ballPos = ball.Position
-    local playerPos = HRP.Position
-    local speed = ballVel.Magnitude
-    local distance = (playerPos - ballPos).Magnitude
+    local Velocity = Ball.AssemblyLinearVelocity
+    local Speed = Velocity.Magnitude
+    local BallPos = Ball.Position
+    local PlayerPos = HRP.Position
+    local Distance = (PlayerPos - BallPos).Magnitude
     
-    -- 1. Anti-Curve / Bait Detection
-    -- We calculate the Dot Product to ensure the ball is actually vectoring towards us
-    local relDir = (playerPos - ballPos).Unit
-    local ballDir = ballVel.Unit
-    local dot = ballDir:Dot(relDir)
+    -- IS IT TARGETING ME? (Keep this simple, don't overthink)
+    local IsTarget = (Ball:GetAttribute("target") == Player.Name)
     
-    -- 2. Advanced Timing (The Infinity Formula)
-    -- account for: TimeToHit - (Ping + Static Offset + Frame Processing Time)
-    local ping = Player:GetNetworkPing()
-    local timeToHit = distance / speed
-    local totalThreshold = ping + Apex.StaticBuffer + (dt * 0.6)
+    if IsTarget then
+        -- TIME TO IMPACT
+        local TTI = Distance / Speed
+        local Ping = Player:GetNetworkPing()
+        
+        -- DYNAMIC THRESHOLD (The secret sauce)
+        -- We combine Ping + Fixed Buffer + Frame Time
+        local Threshold = Ping + Config.TimingBuffer + (dt * 0.5)
 
-    -- 3. Execution
-    if ball:GetAttribute("target") == Player.Name and dot > Apex.DetectionAngle then
-        
-        -- CLASH MODE (Close range panic-parry)
-        if distance <= Apex.ClashRange then
-            ExecParry()
-            UIStroke.Color = Color3.fromRGB(255, 255, 255) -- Flash white
-        
-        -- PREDICTIVE MODE (Long range perfect timing)
-        elseif timeToHit <= totalThreshold then
-            ExecParry()
-            UIStroke.Color = Color3.fromRGB(255, 255, 255)
+        -- TRIGGER CONDITIONS
+        -- 1. Calculated Timing (Long/Mid Range)
+        if TTI <= Threshold then
+            Hit()
+        -- 2. Emergency Distance (Close Range / Clash)
+        elseif Distance <= Config.ClashDistance then
+            Hit()
         end
-    else
-        UIStroke.Color = Apex.Theme
     end
-    
-    -- FPS Display update
-    Indicators.Text = string.format("PING: %dms | FPS: %d", math.floor(ping * 1000), math.floor(1/dt))
 end)
