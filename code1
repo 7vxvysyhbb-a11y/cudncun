@@ -1,44 +1,42 @@
-local Players = game:GetService("Players")
+-- [[ SERVER EXTRAPOLATION AUTO-PARRY ]] --
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 
 local Player = Players.LocalPlayer
-
--- The scaling factor. 
--- 3.5 means for every 3.5 speed the ball has, it adds 1 stud to your parry range.
-local SPEED_MULTIPLIER = 3.5 
-local BASE_RANGE = 12 -- The absolute minimum distance to parry (for slow balls/clashes)
+local PING_BUFFER = 0.03 -- Extra safety net for server processing
 
 RunService.Stepped:Connect(function()
     local Character = Player.Character
-    if not Character then return end
-    
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+    local HRP = Character.HumanoidRootPart
 
     -- Find the real ball
-    local RealBall = nil
-    for _, ball in pairs(workspace.Balls:GetChildren()) do
-        if ball:GetAttribute("realBall") then
-            RealBall = ball
-            break
+    local ActiveBall = nil
+    for _, b in pairs(workspace.Balls:GetChildren()) do
+        if b:GetAttribute("realBall") then 
+            ActiveBall = b 
+            break 
         end
     end
 
-    if not RealBall then return end
+    if not ActiveBall then return end
 
-    -- Only act if it's literally targeting you
-    if RealBall:GetAttribute("target") == Player.Name then
-        local Speed = RealBall.AssemblyLinearVelocity.Magnitude
-        local Distance = (HRP.Position - RealBall.Position).Magnitude
+    -- Only calculate if you are the target
+    if ActiveBall:GetAttribute("target") == Player.Name then
+        local Ping = Player:GetNetworkPing()
+        local Velocity = ActiveBall.AssemblyLinearVelocity
         
-        -- THE RELIABLE TACTIC: Speed-Scaled Range
-        -- If speed is 100, range is 12 + (100/3.5) = ~40 studs.
-        -- If speed is 500, range is 12 + (500/3.5) = ~154 studs.
-        local DynamicRange = BASE_RANGE + (Speed / SPEED_MULTIPLIER)
-
-        if Distance <= DynamicRange then
-            -- Spam the click when inside the dynamic range
+        -- THE SECRET MATH:
+        -- Ball.Position is where it is on YOUR screen.
+        -- ServerPosition is where it actually is in the game's code.
+        local ServerPosition = ActiveBall.Position + (Velocity * (Ping + PING_BUFFER))
+        
+        -- Measure distance to the SERVER'S ball, not the visual ball
+        local TrueDistance = (HRP.Position - ServerPosition).Magnitude
+        
+        -- 18 studs is the sweet spot. If the server thinks the ball is within 18 studs, swing immediately.
+        if TrueDistance <= 18 then
             VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
             VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
         end
