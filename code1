@@ -1,44 +1,60 @@
--- [[ SERVER EXTRAPOLATION AUTO-PARRY ]] --
+-- [[ APEX MARKET v5.0: THE SELLABLE VERSION ]] --
+-- Features: Anti-Curve, Mach-Speed Scaling, Zero-Filter Logic
+
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 
 local Player = Players.LocalPlayer
-local PING_BUFFER = 0.03 -- Extra safety net for server processing
 
-RunService.Stepped:Connect(function()
-    local Character = Player.Character
-    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
-    local HRP = Character.HumanoidRootPart
+-- // COMMERICAL CONFIG //
+local G_SETTINGS = {
+    BASE_THRESHOLD = 15, -- Minimum distance (for slow balls)
+    SPEED_SCALING = 0.35, -- How much the parry range grows with speed
+    MAX_RANGE = 180,      -- Absolute max distance to parry (prevents wasting parry)
+    PING_SENSE = 1.2      -- Multiplier for your lag
+}
 
-    -- Find the real ball
-    local ActiveBall = nil
+local function GetBall()
     for _, b in pairs(workspace.Balls:GetChildren()) do
-        if b:GetAttribute("realBall") then 
-            ActiveBall = b 
-            break 
-        end
+        if b:GetAttribute("realBall") == true then return b end
     end
+end
 
-    if not ActiveBall then return end
+-- Fast execution
+local function Trigger()
+    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
 
-    -- Only calculate if you are the target
-    if ActiveBall:GetAttribute("target") == Player.Name then
+-- Stepped is the fastest way to beat the server
+RunService.Stepped:Connect(function()
+    local Char = Player.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local Ball = GetBall()
+    if not Ball then return end
+    
+    -- Check if it's actually coming for you
+    if Ball:GetAttribute("target") == Player.Name then
+        local HRP = Char.HumanoidRootPart
+        local Velocity = Ball.AssemblyLinearVelocity.Magnitude
+        local Distance = (HRP.Position - Ball.Position).Magnitude
+        
+        -- THE "UNBEATABLE" FORMULA:
+        -- We calculate a 'Dynamic Hitbox' that grows as the ball accelerates.
+        -- This kills curves because it doesn't care about the angle, only the distance.
         local Ping = Player:GetNetworkPing()
-        local Velocity = ActiveBall.AssemblyLinearVelocity
+        local DynamicHitbox = G_SETTINGS.BASE_THRESHOLD + (Velocity * (Ping * G_SETTINGS.PING_SENSE)) + (Velocity * G_SETTINGS.SPEED_SCALING)
         
-        -- THE SECRET MATH:
-        -- Ball.Position is where it is on YOUR screen.
-        -- ServerPosition is where it actually is in the game's code.
-        local ServerPosition = ActiveBall.Position + (Velocity * (Ping + PING_BUFFER))
-        
-        -- Measure distance to the SERVER'S ball, not the visual ball
-        local TrueDistance = (HRP.Position - ServerPosition).Magnitude
-        
-        -- 18 studs is the sweet spot. If the server thinks the ball is within 18 studs, swing immediately.
-        if TrueDistance <= 18 then
-            VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        -- Cap the hitbox so you don't parry from across the map
+        if DynamicHitbox > G_SETTINGS.MAX_RANGE then
+            DynamicHitbox = G_SETTINGS.MAX_RANGE
+        end
+
+        -- TRIGGER
+        if Distance <= DynamicHitbox then
+            Trigger()
         end
     end
 end)
