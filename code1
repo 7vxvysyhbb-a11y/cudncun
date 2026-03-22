@@ -1,60 +1,94 @@
--- [[ APEX MARKET v5.0: THE SELLABLE VERSION ]] --
--- Features: Anti-Curve, Mach-Speed Scaling, Zero-Filter Logic
+-- [[ OVERKILL V6: SELLABLE EDITION ]] --
+-- Features: Aggressive Timing, Frame-Sync, Neon Visualizer
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
-
 local Player = Players.LocalPlayer
 
--- // COMMERICAL CONFIG //
-local G_SETTINGS = {
-    BASE_THRESHOLD = 15, -- Minimum distance (for slow balls)
-    SPEED_SCALING = 0.35, -- How much the parry range grows with speed
-    MAX_RANGE = 180,      -- Absolute max distance to parry (prevents wasting parry)
-    PING_SENSE = 1.2      -- Multiplier for your lag
+-- // COMMERICAL CONFIGURATION //
+local Config = {
+    Enabled = true,
+    Threshold = 0.55, -- The "Magic Number" from the script you liked
+    ClashDistance = 15,
+    Visuals = true
 }
 
+-- // FANCY NOTIFICATION //
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "APEX OVERKILL",
+    Text = "System Authenticated. Ready to Dominate.",
+    Duration = 5
+})
+
+-- // THE DYNAMIC VISUALIZER //
+local Selection = Instance.new("SelectionBox")
+Selection.LineThickness = 0.05
+Selection.Color3 = Color3.fromRGB(0, 255, 255) -- Cyan
+Selection.Parent = workspace
+
+-- // CORE LOGIC //
+local Parried = false
 local function GetBall()
     for _, b in pairs(workspace.Balls:GetChildren()) do
-        if b:GetAttribute("realBall") == true then return b end
+        if b:GetAttribute("realBall") then return b end
     end
 end
 
--- Fast execution
-local function Trigger()
-    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-end
+-- Reset parry state when target changes
+workspace.Balls.ChildAdded:Connect(function(Ball)
+    Ball:GetAttributeChangedSignal("target"):Connect(function()
+        Parried = false
+    end)
+end)
 
--- Stepped is the fastest way to beat the server
-RunService.Stepped:Connect(function()
-    local Char = Player.Character
-    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+RunService.PreSimulation:Connect(function()
+    if not Config.Enabled then return end
     
     local Ball = GetBall()
-    if not Ball then return end
-    
-    -- Check if it's actually coming for you
-    if Ball:GetAttribute("target") == Player.Name then
-        local HRP = Char.HumanoidRootPart
-        local Velocity = Ball.AssemblyLinearVelocity.Magnitude
-        local Distance = (HRP.Position - Ball.Position).Magnitude
-        
-        -- THE "UNBEATABLE" FORMULA:
-        -- We calculate a 'Dynamic Hitbox' that grows as the ball accelerates.
-        -- This kills curves because it doesn't care about the angle, only the distance.
-        local Ping = Player:GetNetworkPing()
-        local DynamicHitbox = G_SETTINGS.BASE_THRESHOLD + (Velocity * (Ping * G_SETTINGS.PING_SENSE)) + (Velocity * G_SETTINGS.SPEED_SCALING)
-        
-        -- Cap the hitbox so you don't parry from across the map
-        if DynamicHitbox > G_SETTINGS.MAX_RANGE then
-            DynamicHitbox = G_SETTINGS.MAX_RANGE
-        end
+    local Character = Player.Character
+    if not Ball or not Character or not Character:FindFirstChild("HumanoidRootPart") then 
+        Selection.Adornee = nil
+        return 
+    end
 
-        -- TRIGGER
-        if Distance <= DynamicHitbox then
-            Trigger()
+    local HRP = Character.HumanoidRootPart
+    local Distance = (HRP.Position - Ball.Position).Magnitude
+    
+    -- High-Velocity Check (Detects 'zoomies' or standard physics)
+    local Speed = Ball.AssemblyLinearVelocity.Magnitude
+    if Speed < 10 then Speed = 50 end -- Prevent division by zero
+
+    -- Time to Impact Calculation
+    local TTI = Distance / Speed
+    local Target = Ball:GetAttribute("target")
+
+    -- Visualizer Logic (Looks great for showcases)
+    if Config.Visuals then
+        Selection.Adornee = Ball
+        if Target == Player.Name then
+            Selection.Color3 = Color3.fromRGB(255, 0, 0) -- Red (Danger)
+            Selection.Transparency = 0
+        else
+            Selection.Color3 = Color3.fromRGB(255, 255, 255) -- White (Safe)
+            Selection.Transparency = 0.5
+        end
+    end
+
+    -- THE TRIGGER
+    -- We use the 0.55 threshold you liked, but add a 15-stud "Clash Override"
+    if Target == Player.Name and not Parried then
+        if TTI <= Config.Threshold or Distance <= Config.ClashDistance then
+            -- Click
+            VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            
+            Parried = true
+            
+            -- Dynamic Reset (Faster than the 1-second delay in the old script)
+            task.delay(0.1, function()
+                Parried = false
+            end)
         end
     end
 end)
